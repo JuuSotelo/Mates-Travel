@@ -1,0 +1,24 @@
+{
+  "name": "mates-travel",
+  "version": "1.0.0",
+  "description": "Pagina web pata catalogo de mates y demas accesorios con parte admin para cargar stock y ver contabilidad de emprendimiento",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JuuSotelo/Mates-Travel.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/JuuSotelo/Mates-Travel/issues"
+  },
+  "homepage": "https://github.com/JuuSotelo/Mates-Travel#readme",
+  "dependencies": {
+    "@libsql/client": "^0.18.0"
+  }
+}
