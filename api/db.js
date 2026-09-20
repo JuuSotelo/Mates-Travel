@@ -148,6 +148,17 @@ async function push(payload) {
   await pipeline(statements);
 }
 
+async function findUser(usernameInput) {
+  await ensureSchema();
+  const username = String(usernameInput ?? "").replace(/'/g, "''");
+  const res = await executeOne(
+    `SELECT username, password_hash FROM users WHERE lower(username) = lower('${username}') LIMIT 1`
+  );
+  const rows = res.result.rows;
+  if (!rows.length) return null;
+  return { username: String(unwrap(rows[0][0])), passwordHash: String(unwrap(rows[0][1])) };
+}
+
 module.exports = async function handler(req, res) {
   try {
     if (!TURSO_URL || !TURSO_TOKEN) {
@@ -164,6 +175,9 @@ module.exports = async function handler(req, res) {
     const action = body.action;
     if (action === "pull") {
       return res.status(200).json({ data: await pull() });
+    }
+    if (action === "finduser") {
+      return res.status(200).json({ data: await findUser((body.payload && body.payload.username) || "") });
     }
     if (action === "push") {
       await push(body.payload);

@@ -390,6 +390,22 @@ class TursoClient {
     }));
     return { products, categoryFamilies, users };
   }
+  async findUser(username) {
+    await this.ensureSchema();
+    const res = await this.request(
+      `SELECT username, password_hash FROM users WHERE lower(username) = lower('${String(username).replace(/'/g, "''")}') LIMIT 1`
+    );
+    const rows = res && res.result && res.result.rows;
+    if (!rows || !rows.length) return null;
+    const unwrap = (obj) => {
+      if (obj && typeof obj === "object") {
+        if ("value" in obj) return obj.value;
+        if (obj.type === "null") return null;
+      }
+      return obj;
+    };
+    return { username: String(unwrap(rows[0][0])), passwordHash: String(unwrap(rows[0][1])) };
+  }
   async push(payload) {
     await this.ensureSchema();
     const statements = [];
@@ -449,6 +465,10 @@ class ApiClient {
   }
   async pull() {
     return await this.call("pull");
+  }
+  async findUser(username) {
+    const data = await this.call("finduser", { username });
+    return data || null;
   }
   async push(payload) {
     await this.call("push", payload);
@@ -643,9 +663,29 @@ renderAll();
   try {
     const remote = await remoteDb.pull();
     if (remote && typeof remote === "object") {
-      if (Array.isArray(remote.products)) state.products = remote.products;
-      if (Array.isArray(remote.categoryFamilies)) categoryFamilies = remote.categoryFamilies;
-      if (Array.isArray(remote.users)) dbUsers = remote.users;
+      let mergeUp = false;
+      if (Array.isArray(remote.products)) {
+        if (remote.products.length) {
+          state.products = remote.products;
+        } else if (state.products.length) {
+          mergeUp = true;
+        }
+      }
+      if (Array.isArray(remote.categoryFamilies)) {
+        if (remote.categoryFamilies.length) {
+          categoryFamilies = remote.categoryFamilies;
+        } else if (categoryFamilies.length) {
+          mergeUp = true;
+        }
+      }
+      if (Array.isArray(remote.users)) {
+        if (remote.users.length) {
+          dbUsers = remote.users;
+        } else if (dbUsers.length) {
+          mergeUp = true;
+        }
+      }
+      if (mergeUp) scheduleRemoteSync();
     } else {
       scheduleRemoteSync();
     }
@@ -1193,15 +1233,32 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-adminLoginForm.addEventListener("submit", (event) => {
+adminLoginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formData = new FormData(adminLoginForm);
   const username = String(formData.get("username") || "");
-
+  const password = String(formData.get("password") || "");
   const normalized = username.trim().toLowerCase();
-  const user = dbUsers.find(
+
+  let user = dbUsers.find(
     (candidate) => String(candidate.username).trim().toLowerCase() === normalized
   );
+
+  if (!user && remoteDb) {
+    try {
+      const remoteUser = await remoteDb.findUser(normalized);
+      if (remoteUser) {
+        user = remoteUser;
+        dbUsers = dbUsers.filter(
+          (candidate) => String(candidate.username).trim().toLowerCase() !== normalized
+        );
+        dbUsers.push(remoteUser);
+        saveData();
+      }
+    } catch (error) {
+      console.warn("No se pudo consultar el administrador en la base de datos:", error);
+    }
+  }
 
   if (!user) {
     if (dbUsers.length === 0) {
@@ -1213,7 +1270,6 @@ adminLoginForm.addEventListener("submit", (event) => {
     return;
   }
 
-  const password = String(formData.get("password") || "");
   if (user.passwordHash === sha256(password)) {
     try {
       sessionStorage.setItem("mates-travel-session", "1");
@@ -1237,7 +1293,7 @@ function createFirstAdmin(username) {
   const name = String(username || "").trim();
   askPrompt({
     title: "Crear primer administrador",
-    message: `No hay administradores todavía. Definí una contraseña para el usuario "${name || "nuevo"}" (mínimo 6 caracteres).`,
+    message: `No hay administradores guardados todavía (este aviso sale una sola vez). Definí una contraseña para el usuario "${name || "nuevo"}" (mínimo 6 caracteres).`,
     placeholder: "Contraseña",
   }).then((password) => {
     const cleanPassword = String(password || "").trim();
