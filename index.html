@@ -12,8 +12,8 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="page-shell">
-      <header class="topbar topbar-editorial">
+    <header class="topbar topbar-editorial">
+      <div class="topbar-inner">
         <div class="brand-block brand-block-compact">
           <img class="brand-logo" src="assets/logo/mates-travel-logo.svg" alt="Logo de Mates Travel" />
           <div>
@@ -28,10 +28,18 @@
 
         <div class="header-actions">
           <button class="icon-btn icon-btn-admin" id="adminLoginBtn" type="button" aria-label="Ingresar como admin">◔</button>
+          <button class="icon-btn icon-btn-admin hidden" id="adminEditBtn" type="button" aria-label="Volver a editar el catálogo" title="Editar catálogo">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"></path>
+              <path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"></path>
+            </svg>
+          </button>
           <button class="secondary-btn hidden" id="adminLogoutBtn" type="button">Cerrar sesión</button>
         </div>
-      </header>
+      </div>
+    </header>
 
+    <div class="page-shell">
       <main>
         <section class="controls catalog-section" id="catalogSection">
           <section class="hero hero-editorial">
@@ -61,7 +69,6 @@
             </div>
           </div>
           <div class="category-browser" id="categoryBrowser"></div>
-          <span class="section-count section-count-under-title" id="featuredCount">Mostrando 0 piezas de oferta y guarnicionería</span>
           <div class="catalog-grid" id="catalogGrid"></div>
         </section>
 
@@ -74,15 +81,15 @@
         <button class="modal-close" type="button" data-action="close-login" aria-label="Cerrar">×</button>
         <p class="section-label">Acceso administrador</p>
         <h2 id="loginTitle">Iniciar sesión</h2>
-        <p class="login-copy">Usá el acceso privado para editar el catálogo y revisar la contabilidad.</p>
         <form id="adminLoginForm" class="login-form">
+          <p class="login-error hidden" id="loginError">Usuario o contraseña incorrectos.</p>
           <label>
             Usuario
-            <input name="username" type="text" placeholder="admin" required />
+            <input name="username" type="text" placeholder="Usuario" required />
           </label>
           <label>
             Contraseña
-            <input name="password" type="password" placeholder="admin123" required />
+            <input name="password" type="password" placeholder="Contraseña" required />
           </label>
           <button type="submit" class="primary-btn">Entrar</button>
         </form>
@@ -95,15 +102,10 @@
         <div class="product-label"></div>
         <button class="product-heart" type="button" aria-label="Guardar en favoritos">♡</button>
         <div class="product-body">
-          <div class="product-meta">
-            <span class="product-category"></span>
-            <span class="product-stock"></span>
-          </div>
           <h4 class="product-name"></h4>
           <p class="product-description"></p>
           <div class="product-footer">
-            <strong class="product-price"></strong>
-            <button class="product-buy" data-action="details" type="button">Consultar pieza</button>
+            <button class="product-buy" data-action="details" type="button">Consultar</button>
           </div>
         </div>
       </article>
@@ -118,16 +120,6 @@
           <p class="section-label">Detalle del producto</p>
           <h3 id="modalTitle"></h3>
           <p class="modal-description" id="modalDescription"></p>
-          <div class="modal-grid">
-            <article>
-              <span>Precio</span>
-              <strong id="modalPrice"></strong>
-            </article>
-            <article>
-              <span>Stock</span>
-              <strong id="modalStock"></strong>
-            </article>
-          </div>
           <div class="modal-actions">
             <button type="button" class="secondary-btn" id="modalCloseBtn">Cerrar</button>
           </div>
@@ -144,93 +136,167 @@
             <p class="section-label">Panel administrador</p>
             <h2 id="adminTitle">Modificar catálogo y ver contabilidad</h2>
           </div>
-          <span class="admin-badge">Acceso privado</span>
         </div>
 
         <div class="admin-tabs" role="tablist" aria-label="Secciones de administración">
           <button class="admin-tab active" type="button" data-admin-view="catalogo">Editar catálogo</button>
+          <button class="admin-tab" type="button" data-admin-view="categorias">Categorías</button>
           <button class="admin-tab" type="button" data-admin-view="contabilidad">Contabilidad</button>
         </div>
 
         <div class="admin-view active" data-admin-panel="catalogo">
           <div class="admin-layout">
-            <div class="panel stock-panel">
-              <div class="panel-head">
-                <h3>Stock actual</h3>
-                <p>Subí o bajá unidades y modificá productos existentes.</p>
-              </div>
-              <div class="stock-list" id="stockList"></div>
-            </div>
-
             <div class="panel form-panel">
               <div class="panel-head">
-                <h3>Agregar o modificar producto</h3>
-                <p>Podés crear uno nuevo o editar uno existente desde el selector.</p>
+                <h3>Agregar o editar producto</h3>
+                <p>Subí una imagen, cargá los datos y elegí (o creá) su categoría.</p>
               </div>
               <form id="productForm" class="product-form">
                 <input type="hidden" name="id" />
-                <label>
-                  Seleccionar producto
-                  <select name="existingId" id="existingProductSelect">
-                    <option value="">Nuevo producto</option>
-                  </select>
-                </label>
+
+                <div class="image-field">
+                  <div class="image-dropzone" id="imageDropzone" tabindex="0" role="button" aria-label="Subir imagen del producto">
+                    <input type="file" id="imageInput" name="image" accept="image/*" />
+                    <div class="image-dropzone-empty" id="imageDropzoneEmpty">
+                      <span class="image-dropzone-icon">＋</span>
+                      <span>Subí una foto del producto</span>
+                    </div>
+                    <img id="imagePreview" class="image-preview hidden" alt="Vista previa del producto" />
+                  </div>
+                  <button type="button" class="image-remove hidden" id="imageRemoveBtn" aria-label="Quitar imagen">×</button>
+                </div>
+
                 <label>
                   Nombre del producto
-                  <input name="name" type="text" placeholder="Mate imperial" required />
+                  <input name="name" type="text" placeholder="Mate Imperial Algarrobo" required />
                 </label>
+
                 <label>
-                  Familia
-                  <input name="family" type="text" placeholder="mate imperial" required />
+                  Etiqueta (opcional)
+                  <input name="label" type="text" placeholder="ej: Calabaza, Edición limitada" />
                 </label>
+
                 <label>
-                  Variante
-                  <input name="subtype" type="text" placeholder="calabaza" required />
+                  Categoría
+                  <select name="categorySelect" id="categorySelect" required></select>
                 </label>
+
+                <div class="new-element hidden" id="newFamilyField">
+                  <label>
+                    Nombre de la nueva categoría
+                    <input name="newFamily" type="text" placeholder="ej: mates de aluminio" />
+                  </label>
+                </div>
+
+                <label>
+                  Subcategoría
+                  <select name="variantSelect" id="variantSelect"></select>
+                </label>
+
+                <div class="new-element hidden" id="newVariantField">
+                  <label>
+                    Nombre de la nueva subcategoría
+                    <input name="newVariant" type="text" placeholder="ej: cincelado" />
+                  </label>
+                </div>
+
                 <label>
                   Precio
                   <input name="price" type="number" min="0" step="0.01" placeholder="25000" required />
                 </label>
                 <label>
-                  Stock inicial
+                  Stock
                   <input name="stock" type="number" min="0" step="1" placeholder="12" required />
+                </label>
+                <label>
+                  Unidades vendidas
+                  <input name="sold" type="number" min="0" step="1" placeholder="6" required />
                 </label>
                 <label>
                   Costo unitario
                   <input name="cost" type="number" min="0" step="0.01" placeholder="14500" required />
                 </label>
                 <label>
-                  Breve descripción
-                  <textarea name="description" rows="4" placeholder="Acero inoxidable, ideal para regalo..." required></textarea>
+                  Descripción
+                  <textarea name="description" rows="4" placeholder="Descripción corta para la tarjeta..." required></textarea>
                 </label>
-                <button type="submit" class="primary-btn full-width">Guardar cambios</button>
+
+                <button type="submit" class="primary-btn full-width">Guardar producto</button>
+                <button type="button" class="ghost-btn full-width hidden" id="cancelEditBtn">Cancelar edición</button>
               </form>
+            </div>
+
+            <div class="panel products-panel">
+              <div class="panel-head">
+                <h3>Productos del catálogo</h3>
+                <p>Editar para modificar un producto. Valor de stock y ventas se manejan en Contabilidad.</p>
+              </div>
+              <div class="admin-product-list" id="productsAdminList"></div>
             </div>
           </div>
         </div>
 
+        <div class="admin-view hidden" data-admin-panel="categorias">
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Categorías y subcategorías</h3>
+              <p>Renombrá o eliminá. Al eliminar una categoría se eliminan sus productos; al eliminar una subcategoría, sus productos pasan a la categoría.</p>
+              <button type="button" class="ghost-btn" id="repairCategoriesBtn">Reparar categorías de los productos</button>
+            </div>
+            <div class="category-manager" id="categoryManager"></div>
+          </div>
+        </div>
+
         <div class="admin-view hidden" data-admin-panel="contabilidad">
-          <div class="accounting-grid">
-            <article class="account-card">
-              <span>Ingresos del mes</span>
-              <strong id="accRevenue">$0</strong>
-              <p>Ventas estimadas según las unidades vendidas cargadas en el sistema.</p>
-            </article>
-            <article class="account-card">
-              <span>Costos</span>
-              <strong id="accCosts">$0</strong>
-              <p>Costos unitarios multiplicados por unidades vendidas.</p>
-            </article>
-            <article class="account-card accent">
-              <span>Ganancia bruta</span>
-              <strong id="accProfit">$0</strong>
-              <p>Margen bruto antes de gastos operativos y fijos.</p>
-            </article>
+          <div class="acc-section">
+            <div class="panel-head acc-head">
+              <div>
+                <h3>Contabilidad</h3>
+                <p>Planilla editable: anotá lo que vendiste y lo que tenés. La ganancia se calcula sola (precio − costo).</p>
+              </div>
+              <button type="button" class="ghost-btn" id="accNewProductBtn">＋ Agregar producto</button>
+            </div>
+            <div class="acc-table-wrap">
+              <table class="acc-table">
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th>Stock</th>
+                    <th>Vendido</th>
+                    <th>Costo/ud</th>
+                    <th>Precio venta</th>
+                    <th>Ganancia/ud</th>
+                    <th>Ganancia total</th>
+                  </tr>
+                </thead>
+                <tbody id="accSheetBody"></tbody>
+                <tfoot>
+                  <tr id="accSheetFoot"></tr>
+                </tfoot>
+              </table>
+            </div>
+            <p class="acc-note" id="accSheetNote"></p>
           </div>
         </div>
       </article>
     </div>
 
+    <div class="dialog hidden" id="dialogOverlay" aria-hidden="true">
+      <div class="dialog-backdrop"></div>
+      <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+        <button class="dialog-close" type="button" id="dialogCloseBtn" aria-label="Cancelar">×</button>
+        <h3 id="dialogTitle"></h3>
+        <p class="dialog-message" id="dialogMessage"></p>
+        <input id="dialogInput" class="dialog-input" type="text" autocomplete="off" />
+        <p class="dialog-hint hidden" id="dialogHint"></p>
+        <div class="dialog-actions">
+          <button type="button" class="ghost-btn" id="dialogCancelBtn">Cancelar</button>
+          <button type="button" class="primary-btn" id="dialogConfirmBtn">Confirmar</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="config.local.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

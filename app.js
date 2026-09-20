@@ -112,36 +112,229 @@ const state = {
 const catalogGrid = document.getElementById("catalogGrid");
 const searchInput = document.getElementById("searchInput");
 const categoryBrowser = document.getElementById("categoryBrowser");
-const featuredCount = document.getElementById("featuredCount");
-const stockList = document.getElementById("stockList");
 const productForm = document.getElementById("productForm");
 const productCardTemplate = document.getElementById("productCardTemplate");
 const productModal = document.getElementById("productModal");
 const modalVisual = document.getElementById("modalVisual");
 const modalTitle = document.getElementById("modalTitle");
 const modalDescription = document.getElementById("modalDescription");
-const modalPrice = document.getElementById("modalPrice");
-const modalStock = document.getElementById("modalStock");
 const modalCloseBtn = document.getElementById("modalCloseBtn");
 const adminLoginBtn = document.getElementById("adminLoginBtn");
 const adminLogoutBtn = document.getElementById("adminLogoutBtn");
+const adminEditBtn = document.getElementById("adminEditBtn");
 const adminLoginModal = document.getElementById("adminLoginModal");
 const adminLoginForm = document.getElementById("adminLoginForm");
+const loginError = document.getElementById("loginError");
 const adminPanelModal = document.getElementById("adminPanelModal");
 const adminTabButtons = document.querySelectorAll(".admin-tab");
 const adminPanels = document.querySelectorAll(".admin-view");
-const accRevenue = document.getElementById("accRevenue");
-const accCosts = document.getElementById("accCosts");
-const accProfit = document.getElementById("accProfit");
-const existingProductSelect = document.getElementById("existingProductSelect");
+const accSheetBody = document.getElementById("accSheetBody");
+const accSheetFoot = document.getElementById("accSheetFoot");
+const accSheetNote = document.getElementById("accSheetNote");
+const accNewProductBtn = document.getElementById("accNewProductBtn");
+const productsAdminList = document.getElementById("productsAdminList");
+const categorySelect = document.getElementById("categorySelect");
+const variantSelect = document.getElementById("variantSelect");
+const newFamilyField = document.getElementById("newFamilyField");
+const newVariantField = document.getElementById("newVariantField");
+const imageInput = document.getElementById("imageInput");
+const imageDropzone = document.getElementById("imageDropzone");
+const imagePreview = document.getElementById("imagePreview");
+const imageDropzoneEmpty = document.getElementById("imageDropzoneEmpty");
+const imageRemoveBtn = document.getElementById("imageRemoveBtn");
+const cancelEditBtn = document.getElementById("cancelEditBtn");
 
-const categoryFamilies = [
+let pendingImage = null;
+
+let categoryFamilies = [
   { family: "mate imperial", variants: ["calabaza", "algarrobo", "acero inoxidable", "de alpaca", "de acero"] },
   { family: "mate camionero", variants: ["algarrobo", "calabaza de acero"] },
-  { family: "mate porito de calabaza", variants: ["porito de calabaza"] },
+  { family: "mate porito", variants: ["porito de calabaza"] },
   { family: "bombillas", variants: ["pico de loro", "pico de rey", "pico de loro cincelado"] },
   { family: "canastas", variants: ["eco cuero"] },
 ];
+
+const STORAGE_KEY = "mates-travel-data";
+
+let dbUsers = [];
+
+function sha256(ascii) {
+  function rightRotate(value, amount) {
+    return (value >>> amount) | (value << (32 - amount));
+  }
+  const maxWord = Math.pow(2, 32);
+  let result = "";
+  const words = [];
+  const asciiBitLength = ascii.length * 8;
+  let hash = (sha256.h = sha256.h || []);
+  const k = (sha256.k = sha256.k || []);
+  let primeCounter = k.length;
+  const isComposite = {};
+  for (let candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (let i = 0; i < 313; i += candidate) {
+        isComposite[i] = candidate;
+      }
+      hash[primeCounter] = (Math.pow(candidate, 0.5) * maxWord) | 0;
+      k[primeCounter++] = (Math.pow(candidate, 1 / 3) * maxWord) | 0;
+    }
+  }
+  ascii += "\x80";
+  while (ascii.length % 64 !== 56) ascii += "\x00";
+  for (let i = 0; i < ascii.length; i++) {
+    const j = ascii.charCodeAt(i);
+    if (j >> 8) return;
+    words[i >> 2] |= j << (((3 - i) % 4) * 8);
+  }
+  words[words.length] = (asciiBitLength / maxWord) | 0;
+  words[words.length] = asciiBitLength;
+  for (let j = 0; j < words.length; ) {
+    const w = words.slice(j, (j += 16));
+    const oldHash = hash.slice(0, 8);
+    hash = hash.slice(0, 8);
+    for (let i = 0; i < 64; i++) {
+      const w15 = w[i - 15];
+      const w2 = w[i - 2];
+      const a = hash[0];
+      const e = hash[4];
+      const temp1 =
+        hash[7] +
+        (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25)) +
+        ((e & hash[5]) ^ (~e & hash[6])) +
+        k[i] +
+        (w[i] =
+          i < 16
+            ? w[i]
+            : (w[i - 16] +
+                (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3)) +
+                w[i - 7] +
+                (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))) |
+              0);
+      const temp2 =
+        (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22)) +
+        ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+      hash = [(temp1 + temp2) | 0].concat(hash);
+      hash[4] = (hash[4] + temp1) | 0;
+    }
+    for (let i = 0; i < 8; i++) {
+      hash[i] = (hash[i] + oldHash[i]) | 0;
+    }
+  }
+  for (let i = 0; i < 8; i++) {
+    for (let j = 3; j + 1; j--) {
+      const b = (hash[i] >> (j * 8)) & 255;
+      result += (b < 16 ? 0 : "") + b.toString(16);
+    }
+  }
+  return result;
+}
+
+function loadSavedData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && "products" in parsed ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistBlob() {
+  return JSON.stringify({ products: state.products, categoryFamilies, users: dbUsers });
+}
+
+function saveData() {
+  const blob = persistBlob();
+  try {
+    localStorage.setItem(STORAGE_KEY, blob);
+  } catch {
+    // Modo incógnito o sin espacio: se ignora el guardado local.
+  }
+  syncRemote();
+}
+
+function syncRemote() {
+  if (!remoteDb) return;
+  remoteDb.setData(persistBlob()).catch((error) => {
+    console.warn("No se guardó en Turso:", error);
+  });
+}
+
+class TursoClient {
+  constructor(url, token) {
+    this.baseUrl = String(url).replace(/\/+$/, "");
+    this.token = token;
+  }
+  async request(sql) {
+    const response = await fetch(`${this.baseUrl}/v2/pipeline`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.token}`,
+      },
+      body: JSON.stringify({
+        requests: [{ type: "execute", stmt: { sql: String(sql).replace(/'/g, "''") } }],
+      }),
+    });
+    if (!response.ok) throw new Error(`Turso HTTP ${response.status}`);
+    const json = await response.json();
+    const first = json && json.results && json.results[0];
+    if (first && first.type === "execute" && first.response && first.response.error) {
+      throw new Error(first.response.error.message || "Error de Turso");
+    }
+    return first ? first.response : null;
+  }
+  async fetchData() {
+    let res;
+    try {
+      res = await this.request("SELECT value FROM data WHERE key = 'main'");
+    } catch (error) {
+      if (/no such table/i.test(String((error && error.message) || ""))) {
+        await this.request("CREATE TABLE IF NOT EXISTS data (key TEXT PRIMARY KEY, value TEXT)");
+        res = await this.request("SELECT value FROM data WHERE key = 'main'");
+      } else {
+        throw error;
+      }
+    }
+    const rows = res && res.result && res.result.rows;
+    return rows && rows.length ? JSON.parse(rows[0][0]) : null;
+  }
+  async setData(blob) {
+    await this.request(
+      `INSERT INTO data (key, value) VALUES ('main', '${String(blob).replace(/'/g, "''")}') ON CONFLICT (key) DO UPDATE SET value = excluded.value`
+    );
+  }
+}
+
+const remoteDb = (() => {
+  const cfg = (typeof window !== "undefined" && window.MATES_LOCAL_DB) || {};
+  if (cfg.url && cfg.token) {
+    return new TursoClient(cfg.url, cfg.token);
+  }
+  return null;
+})();
+
+const savedData = loadSavedData();
+if (savedData) {
+  if (Array.isArray(savedData.products) && savedData.products.length) {
+    state.products = savedData.products;
+  }
+  if (Array.isArray(savedData.categoryFamilies)) {
+    categoryFamilies = savedData.categoryFamilies;
+  }
+  if (Array.isArray(savedData.users) && savedData.users.length) {
+    dbUsers = savedData.users;
+  }
+}
+
+try {
+  if (sessionStorage.getItem("mates-travel-session") === "1") {
+    state.authenticated = true;
+  }
+} catch {
+  // Sin sesión persistente.
+}
 
 const currency = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -153,31 +346,74 @@ function formatCurrency(value) {
   return currency.format(value);
 }
 
+function formatPercent(value) {
+  return new Intl.NumberFormat("es-AR", { style: "percent", maximumFractionDigits: 0 }).format(value);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function categoryPrefixMatches(category, family) {
+  const cat = String(category || "").toLowerCase().trim();
+  const singular = family.replace(/s$/, "");
+  return cat === family || cat.startsWith(`${family} `) || cat === singular || cat.startsWith(`${singular} `);
+}
+
+function productMatchesCategory(product, category) {
+  if (category === "all") return true;
+  const productText = `${product.name} ${product.category} ${product.label || ""} ${product.description}`.toLowerCase();
+  const rules = {
+    "bombillas": "bombilla",
+    "canastas": "canasta",
+    "mate imperial": "imperial",
+    "mate camionero": "camionero",
+    "mate porito": "porito",
+  };
+  if (rules[category]) {
+    return productText.includes(rules[category]);
+  }
+  if (product.label && product.label.toLowerCase() === category) {
+    return true;
+  }
+  const parts = splitCategory(product.category);
+  if (parts.family === category || parts.variant === category) {
+    return true;
+  }
+  return productText.includes(category);
+}
+
 function visibleProducts() {
   return state.products.filter((product) => {
-    const matchesSearch = `${product.name} ${product.category} ${product.description}`
+    const matchesSearch = `${product.name} ${product.category} ${product.label || ""} ${product.description}`
       .toLowerCase()
       .includes(state.search.toLowerCase());
-    const productText = `${product.name} ${product.category} ${product.description}`.toLowerCase();
-    const matchesCategory =
-      state.category === "all" ||
-      productText.includes(state.category) ||
-      (state.category === "bombillas" && productText.includes("bombilla")) ||
-      (state.category === "canastas" && productText.includes("canasta")) ||
-      (state.category === "mate imperial" && productText.includes("imperial")) ||
-      (state.category === "mate camionero" && productText.includes("camionero")) ||
-      (state.category === "mate porito de calabaza" && productText.includes("porito"));
-    return matchesSearch && matchesCategory;
+    return matchesSearch && productMatchesCategory(product, state.category);
   });
+}
+
+function capitalize(text) {
+  return text
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+const WHATSAPP_NUMBER = "5492604810402";
+
+function openWhatsApp(product) {
+  const message = `Hola Mates Travel! Me interesa: ${product.name} (${product.category}).`;
+  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+  window.open(url, "_blank", "noopener");
 }
 
 function getProductById(id) {
   return state.products.find((product) => product.id === id);
-}
-
-function getFormProductId() {
-  const rawValue = productForm.elements.id.value;
-  return rawValue ? Number(rawValue) : null;
 }
 
 function renderCategoryBrowser() {
@@ -189,7 +425,8 @@ function renderCategoryBrowser() {
   const toggle = document.createElement("button");
   toggle.type = "button";
   toggle.className = "category-browser-toggle";
-  toggle.innerHTML = '<span>Categorías</span><span class="category-chevron">▾</span>';
+  const activeLabel = state.category === "all" ? "Categorías" : `Categorías · ${capitalize(state.category)}`;
+  toggle.innerHTML = `<span>${activeLabel}</span><span class="category-chevron">▾</span>`;
   toggle.addEventListener("click", () => {
     state.categoryBrowserOpen = !state.categoryBrowserOpen;
     if (!state.categoryBrowserOpen) {
@@ -208,6 +445,8 @@ function renderCategoryBrowser() {
   allButton.textContent = "Todas";
   allButton.addEventListener("click", () => {
     state.category = "all";
+    state.categoryBrowserOpen = false;
+    state.openFamily = "";
     renderAll();
   });
   panel.appendChild(allButton);
@@ -219,30 +458,56 @@ function renderCategoryBrowser() {
     const familyBtn = document.createElement("button");
     familyBtn.type = "button";
     familyBtn.className = `category-family-btn ${state.category === family.family ? "active" : ""}`;
-    familyBtn.innerHTML = `<span>${family.family}</span><span class="category-chevron">▾</span>`;
+    familyBtn.innerHTML = `<span>${capitalize(family.family)}</span><span class="category-chevron">▾</span>`;
     familyBtn.addEventListener("click", () => {
-      state.openFamily = state.openFamily === family.family ? "" : family.family;
-      state.category = family.family;
+      if (family.variants.length === 0) {
+        state.category = family.family;
+        state.categoryBrowserOpen = false;
+        state.openFamily = "";
+      } else {
+        state.openFamily = state.openFamily === family.family ? "" : family.family;
+        state.category = family.family;
+      }
       renderAll();
     });
 
     const variants = document.createElement("div");
     variants.className = "category-variants";
+    const variantsInner = document.createElement("div");
+    variantsInner.className = "category-variants-inner";
 
     family.variants.forEach((variant) => {
       const variantBtn = document.createElement("button");
       variantBtn.type = "button";
       variantBtn.className = `category-variant-btn ${state.category === variant ? "active" : ""}`;
-      variantBtn.textContent = variant;
+      variantBtn.textContent = capitalize(variant);
       variantBtn.addEventListener("click", () => {
-        state.openFamily = family.family;
         state.category = variant;
-        renderAll();
+        state.categoryBrowserOpen = false;
+        state.openFamily = "";
+renderAll();
+
+(async function initRemote() {
+  if (!remoteDb) return;
+  try {
+    const remote = await remoteDb.fetchData();
+    if (remote && typeof remote === "object") {
+      if (Array.isArray(remote.products) && remote.products.length) state.products = remote.products;
+      if (Array.isArray(remote.categoryFamilies)) categoryFamilies = remote.categoryFamilies;
+      if (Array.isArray(remote.users) && remote.users.length) dbUsers = remote.users;
+    }
+    syncRemote();
+  } catch (error) {
+    console.warn("No se pudo sincronizar con Turso; se usa el modo local.", error);
+  }
+  renderAll();
+})();
       });
-      variants.appendChild(variantBtn);
+      variantsInner.appendChild(variantBtn);
     });
 
     familyItem.appendChild(familyBtn);
+    variants.appendChild(variantsInner);
     familyItem.appendChild(variants);
     panel.appendChild(familyItem);
   });
@@ -251,106 +516,326 @@ function renderCategoryBrowser() {
   categoryBrowser.appendChild(wrapper);
 }
 
-function updateProductSelect() {
-  const selectedValue = existingProductSelect.value;
-  existingProductSelect.innerHTML = ['<option value="">Nuevo producto</option>']
-    .concat(
-      state.products.map((product) => `<option value="${product.id}">${product.name}</option>`),
-    )
-    .join("");
+function splitCategory(category) {
+  const cat = String(category || "").toLowerCase().trim();
+  let family = cat;
+  let variant = "";
+  const matchFamily = (f) => cat === f.family || cat.startsWith(`${f.family} `);
+  const matchSingular = (f) => {
+    const singular = f.family.replace(/s$/, "");
+    return cat === singular || cat.startsWith(`${singular} `);
+  };
+  let match = categoryFamilies.find(matchFamily) || categoryFamilies.find(matchSingular);
+  if (match) {
+    family = match.family;
+    variant = cat.slice(family.length).trim();
+  }
+  return { family, variant };
+}
 
-  if (selectedValue) {
-    existingProductSelect.value = selectedValue;
+function populateCategorySelect(desiredFamily) {
+  const families = categoryFamilies.map((f) => f.family);
+  if (desiredFamily && desiredFamily !== "__new__" && !families.includes(desiredFamily)) {
+    families.unshift(desiredFamily);
+  }
+  const options = families
+    .map((f) => `<option value="${f}">${capitalize(f)}</option>`)
+    .concat(['<option value="__new__">＋ Crear nueva categoría…</option>']);
+  categorySelect.innerHTML = options.join("");
+  if (desiredFamily && families.includes(desiredFamily)) {
+    categorySelect.value = desiredFamily;
   }
 }
 
+function syncVariantSelect() {
+  const previousValue = variantSelect.value;
+  const familyValue = categorySelect.value;
+
+  newFamilyField.classList.toggle("hidden", familyValue !== "__new__");
+
+  if (familyValue === "__new__") {
+    variantSelect.disabled = false;
+    variantSelect.innerHTML = ['<option value="">Sin subcategoría</option>', '<option value="__new__">＋ Crear subcategoría…</option>'].join("");
+    variantSelect.value = "";
+    newVariantField.classList.add("hidden");
+    return;
+  }
+
+  variantSelect.disabled = false;
+  const family = categoryFamilies.find((f) => f.family === familyValue);
+  const variants = family ? family.variants : [];
+  const options = ['<option value="">Sin subcategoría</option>'];
+  variants.forEach((v) => options.push(`<option value="${v}">${capitalize(v)}</option>`));
+  options.push('<option value="__new__">＋ Crear subcategoría…</option>');
+  variantSelect.innerHTML = options.join("");
+
+  const restored = [...variantSelect.options].some((o) => o.value === previousValue);
+  variantSelect.value = restored ? previousValue : "";
+  newVariantField.classList.toggle("hidden", variantSelect.value !== "__new__");
+}
+
+function showImagePreview(dataUrl) {
+  imageDropzoneEmpty.classList.toggle("hidden", Boolean(dataUrl));
+  imagePreview.classList.toggle("hidden", !dataUrl);
+  imageRemoveBtn.classList.toggle("hidden", !dataUrl);
+  if (dataUrl) imagePreview.src = dataUrl;
+  if (!dataUrl) imagePreview.removeAttribute("src");
+}
+
+function processImageFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 700;
+      let width = img.width;
+      let height = img.height;
+      if (width > MAX || height > MAX) {
+        const ratio = Math.min(MAX / width, MAX / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+      pendingImage = canvas.toDataURL("image/jpeg", 0.82);
+      showImagePreview(pendingImage);
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 function fillForm(product) {
+  const parts = product ? splitCategory(product.category) : { family: "", variant: "" };
+
   productForm.elements.id.value = product ? String(product.id) : "";
-  existingProductSelect.value = product ? String(product.id) : "";
   productForm.elements.name.value = product?.name || "";
-  productForm.elements.family.value = product?.category || "";
-  productForm.elements.subtype.value = "";
+  productForm.elements.label.value = product?.label || "";
   productForm.elements.price.value = product ? String(product.price) : "";
   productForm.elements.stock.value = product ? String(product.stock) : "";
+  productForm.elements.sold.value = product ? String(product.sold ?? 0) : "";
   productForm.elements.cost.value = product ? String(product.cost) : "";
   productForm.elements.description.value = product?.description || "";
+  pendingImage = product?.image || null;
+  showImagePreview(pendingImage);
   state.editingId = product ? product.id : null;
+  cancelEditBtn.classList.toggle("hidden", !product);
+
+  populateCategorySelect(parts.family || categoryFamilies[0]?.family || "");
+  variantSelect.value = "";
+  syncVariantSelect();
+  if (parts.variant) {
+    const exists = [...variantSelect.options].some((o) => o.value === parts.variant);
+    if (exists) {
+      variantSelect.value = parts.variant;
+    } else {
+      const opt = document.createElement("option");
+      opt.value = parts.variant;
+      opt.textContent = capitalize(parts.variant);
+      variantSelect.insertBefore(opt, variantSelect.lastElementChild);
+      variantSelect.value = parts.variant;
+    }
+  }
 }
 
 function resetForm() {
   productForm.reset();
   productForm.elements.id.value = "";
-  existingProductSelect.value = "";
+  pendingImage = null;
+  showImagePreview(null);
   state.editingId = null;
+  const newVariantInput = document.querySelector('[name="newVariant"]');
+  const newFamilyInput = document.querySelector('[name="newFamily"]');
+  if (newVariantInput) newVariantInput.value = "";
+  if (newFamilyInput) newFamilyInput.value = "";
+  populateCategorySelect("");
+  variantSelect.value = "";
+  syncVariantSelect();
+  cancelEditBtn.classList.add("hidden");
 }
 
 function renderCatalog() {
   const products = visibleProducts();
-  featuredCount.textContent = `Mostrando ${products.length} piezas en la categoría seleccionada`;
   catalogGrid.innerHTML = "";
 
   products.forEach((product) => {
     const card = productCardTemplate.content.firstElementChild.cloneNode(true);
     const productImage = card.querySelector(".product-image");
     const productLabel = card.querySelector(".product-label");
-    const productCategory = card.querySelector(".product-category");
-    const productStock = card.querySelector(".product-stock");
     const productName = card.querySelector(".product-name");
     const productDescription = card.querySelector(".product-description");
-    const productPrice = card.querySelector(".product-price");
 
     card.dataset.productId = String(product.id);
-    if (productImage) productImage.style.background = `linear-gradient(135deg, ${product.tone}, #1d1a17)`;
-    if (productLabel) productLabel.textContent = product.label || "Pieza única";
-    if (productCategory) productCategory.textContent = product.category;
-    if (productStock) productStock.textContent = `Stock ${product.stock}`;
+    if (productImage) {
+      productImage.style.background = product.image
+        ? `url("${product.image}") center/cover no-repeat`
+        : `linear-gradient(135deg, ${product.tone || "#a15c38"}, #1d1a17)`;
+    }
+    if (productLabel) {
+      productLabel.textContent = product.label || "";
+      productLabel.classList.toggle("hidden", !product.label);
+    }
     if (productName) productName.textContent = product.name;
     if (productDescription) productDescription.textContent = product.description;
-    if (productPrice) productPrice.textContent = formatCurrency(product.price);
     catalogGrid.appendChild(card);
   });
 
   if (products.length === 0) {
-    catalogGrid.innerHTML = '<p class="panel">No hay productos que coincidan con la búsqueda.</p>';
+    const categoryText = state.category === "all" ? "el catálogo" : `"${capitalize(state.category)}"`;
+    catalogGrid.innerHTML = `<p class="panel">No hay productos en ${categoryText}${state.search ? ` con la búsqueda "${state.search}"` : ""}.</p>`;
   }
 }
 
-function renderStock() {
-  stockList.innerHTML = "";
+function renderProductsAdmin() {
+  productsAdminList.innerHTML = "";
+  if (state.products.length === 0) {
+    productsAdminList.innerHTML = '<p class="empty-hint">Todavía no hay productos. Agregá el primero con el formulario.</p>';
+    return;
+  }
 
   state.products.forEach((product) => {
     const row = document.createElement("div");
-    row.className = "stock-row";
+    row.className = "admin-product-row";
+    const thumbStyle = product.image
+      ? `background:url("${product.image}") center/cover no-repeat`
+      : `background:linear-gradient(135deg, ${product.tone || "#a15c38"}, #1d1a17)`;
     row.innerHTML = `
-      <div>
+      <div class="admin-product-thumb" style="${thumbStyle}"></div>
+      <div class="admin-product-info">
         <strong>${product.name}</strong>
-        <small>${product.category} · ${formatCurrency(product.price)}</small>
+        <small>${capitalize(product.category)}</small>
       </div>
-      <div>
-        <strong>${product.stock}</strong>
-        <small>unidades</small>
-      </div>
-      <div class="stock-edit-actions">
-        <button type="button" data-action="edit" data-id="${product.id}">Editar</button>
-        <button type="button" data-action="minus" data-id="${product.id}">-</button>
-        <button type="button" data-action="plus" data-id="${product.id}">+</button>
+      <div class="admin-product-actions">
+        <button type="button" data-action="edit" data-id="${product.id}" title="Editar producto">Editar</button>
+        <button type="button" data-action="delete" data-id="${product.id}" class="danger" title="Eliminar producto">Eliminar</button>
       </div>
     `;
-    stockList.appendChild(row);
+    productsAdminList.appendChild(row);
+  });
+}
+
+function renderCategoryManager() {
+  const manager = document.getElementById("categoryManager");
+  manager.innerHTML = "";
+  if (categoryFamilies.length === 0) {
+    manager.innerHTML = '<p class="empty-hint">Todavía no hay categorías.</p>';
+    return;
+  }
+
+  categoryFamilies.forEach((family) => {
+    const block = document.createElement("div");
+    block.className = "category-manager-block";
+
+    const head = document.createElement("div");
+    head.className = "category-manager-head";
+    head.innerHTML = `
+      <strong>${capitalize(family.family)}</strong>
+      <div class="cm-actions">
+        <button type="button" data-action="rename-family" data-family="${family.family}">Renombrar</button>
+        <button type="button" class="danger" data-action="delete-family" data-family="${family.family}">Eliminar</button>
+      </div>
+    `;
+    block.appendChild(head);
+
+    if (family.variants.length === 0) {
+      const empty = document.createElement("small");
+      empty.className = "category-manager-empty";
+      empty.textContent = "Sin subcategorías.";
+      block.appendChild(empty);
+    } else {
+      family.variants.forEach((variant) => {
+        const row = document.createElement("div");
+        row.className = "category-manager-variant";
+        row.innerHTML = `
+          <span>• ${capitalize(variant)}</span>
+          <div class="cm-actions">
+            <button type="button" data-action="rename-variant" data-family="${family.family}" data-variant="${variant}">Renombrar</button>
+            <button type="button" class="danger" data-action="delete-variant" data-family="${family.family}" data-variant="${variant}">Eliminar</button>
+          </div>
+        `;
+        block.appendChild(row);
+      });
+    }
+
+    manager.appendChild(block);
   });
 }
 
 function renderAccounting() {
-  const revenue = state.products.reduce((sum, product) => sum + product.price * product.sold, 0);
-  const costs = state.products.reduce((sum, product) => sum + product.cost * product.sold, 0);
-  accRevenue.textContent = formatCurrency(revenue);
-  accCosts.textContent = formatCurrency(costs);
-  accProfit.textContent = formatCurrency(revenue - costs);
+  const rows = state.products.map((product) => {
+    const unitProfit = product.price - product.cost;
+    return { product, unitProfit, totalProfit: unitProfit * product.sold };
+  });
+
+  accSheetBody.innerHTML = state.products.length
+    ? rows.map(({ product, unitProfit, totalProfit }) => `
+        <tr>
+          <td class="acc-name">${escapeHtml(capitalize(product.name))}</td>
+          <td><input class="acc-input" type="number" min="0" step="1" data-field="stock" data-id="${product.id}" value="${product.stock}" aria-label="Stock" /></td>
+          <td><input class="acc-input" type="number" min="0" step="1" data-field="sold" data-id="${product.id}" value="${product.sold}" aria-label="Vendido" /></td>
+          <td><input class="acc-input" type="number" min="0" step="1" data-field="cost" data-id="${product.id}" value="${product.cost}" aria-label="Costo por unidad" /></td>
+          <td><input class="acc-input" type="number" min="0" step="1" data-field="price" data-id="${product.id}" value="${product.price}" aria-label="Precio de venta" /></td>
+          <td class="acc-cell${unitProfit < 0 ? " acc-neg" : ""}">${formatCurrency(unitProfit)}</td>
+          <td class="acc-cell${totalProfit < 0 ? " acc-neg" : ""}">${formatCurrency(totalProfit)}</td>
+        </tr>`).join("")
+    : '<tr><td class="acc-name" colspan="7">Todavía no hay productos. Agregá el primero en Editar catálogo.</td></tr>';
+
+  const totalStock = state.products.reduce((sum, product) => sum + product.stock, 0);
+  const totalSold = state.products.reduce((sum, product) => sum + product.sold, 0);
+  const totalProfit = rows.reduce((sum, row) => sum + row.totalProfit, 0);
+
+  accSheetFoot.innerHTML = `
+      <td>Total</td>
+      <td>${totalStock}</td>
+      <td>${totalSold}</td>
+      <td colspan="3"></td>
+      <td class="${totalProfit < 0 ? "acc-neg" : ""}">${formatCurrency(totalProfit)}</td>`;
+
+  accSheetNote.textContent = state.products.length
+    ? `Ganancia total: ${formatCurrency(totalProfit)} por ${totalSold} unidades vendidas. Cambiar el "Vendido" descuenta del stock automáticamente. Ganancia/ud = precio de venta − costo.`
+    : "No hay productos para contabilizar todavía.";
 }
 
 function applyAdminView(view) {
   state.adminView = view;
-  adminTabButtons.forEach((button) => {
+accNewProductBtn.addEventListener("click", () => {
+  applyAdminView("catalogo");
+  resetForm();
+  document.getElementById("productForm").scrollIntoView({ behavior: "smooth", block: "center" });
+});
+
+accSheetBody.addEventListener("change", (event) => {
+  const input = event.target.closest("input.acc-input");
+  if (!input) return;
+  const product = getProductById(Number(input.dataset.id));
+  if (!product) return;
+
+  const field = input.dataset.field;
+  const raw = Number(input.value);
+
+  if (field === "stock") {
+    product.stock = Math.max(0, Math.floor(raw || 0));
+  } else if (field === "sold") {
+    const oldSold = product.sold;
+    let newSold = Math.max(0, Math.floor(raw || 0));
+    const maxSold = oldSold + product.stock;
+    newSold = Math.min(newSold, maxSold);
+    product.sold = newSold;
+    product.stock = product.stock - (newSold - oldSold);
+  } else if (field === "cost") {
+    product.cost = Math.max(0, raw || 0);
+  } else if (field === "price") {
+    product.price = Math.max(0, raw || 0);
+  }
+
+  saveData();
+  renderAll();
+});
+
+adminTabButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.adminView === view);
   });
 
@@ -358,15 +843,19 @@ function applyAdminView(view) {
     panel.classList.toggle("hidden", panel.dataset.adminPanel !== view);
     panel.classList.toggle("active", panel.dataset.adminPanel === view);
   });
+
+  if (view === "categorias") {
+    renderCategoryManager();
+  }
 }
 
 function renderAdmin() {
-  updateProductSelect();
-  renderStock();
+  renderProductsAdmin();
   renderAccounting();
   applyAdminView(state.adminView);
   adminLoginBtn.classList.toggle("hidden", state.authenticated);
   adminLogoutBtn.classList.toggle("hidden", !state.authenticated);
+  adminEditBtn.classList.toggle("hidden", !state.authenticated);
 }
 
 function renderAll() {
@@ -380,11 +869,11 @@ function openProductModal(productId) {
   if (!product) return;
 
   state.selectedProductId = productId;
-  modalVisual.style.background = `linear-gradient(135deg, ${product.tone}, #1d1a17)`;
+  modalVisual.style.background = product.image
+    ? `url("${product.image}") center/cover no-repeat`
+    : `linear-gradient(135deg, ${product.tone || "#a15c38"}, #1d1a17)`;
   modalTitle.textContent = product.name;
   modalDescription.textContent = product.description;
-  modalPrice.textContent = formatCurrency(product.price);
-  modalStock.textContent = `${product.stock} unidades`;
   productModal.classList.remove("hidden");
   productModal.setAttribute("aria-hidden", "false");
 }
@@ -407,6 +896,13 @@ function closeLoginModal() {
 
 function setAuthenticated(authenticated) {
   state.authenticated = authenticated;
+  try {
+    if (!authenticated) {
+      sessionStorage.removeItem("mates-travel-session");
+    }
+  } catch {
+    // Sin sesión persistente.
+  }
   renderAdmin();
 }
 
@@ -414,6 +910,7 @@ function openAdminPanel() {
   adminPanelModal.classList.remove("hidden");
   adminPanelModal.setAttribute("aria-hidden", "false");
   renderAdmin();
+  resetForm();
 }
 
 function closeAdminPanel() {
@@ -433,7 +930,10 @@ catalogGrid.addEventListener("click", (event) => {
   const card = button.closest(".product-card");
   const productId = Number(card?.dataset.productId);
   if (button.dataset.action === "details") {
-    openProductModal(productId);
+    const product = getProductById(productId);
+    if (product) {
+      openWhatsApp(product);
+    }
   }
 });
 
@@ -447,6 +947,10 @@ productModal.addEventListener("click", (event) => {
 modalCloseBtn.addEventListener("click", closeProductModal);
 
 adminLoginBtn.addEventListener("click", openLoginModal);
+adminEditBtn.addEventListener("click", () => {
+  openAdminPanel();
+  applyAdminView("catalogo");
+});
 adminLogoutBtn.addEventListener("click", () => setAuthenticated(false));
 
 adminLoginModal.addEventListener("click", (event) => {
@@ -456,13 +960,115 @@ adminLoginModal.addEventListener("click", (event) => {
   }
 });
 
+let dialogResolve = null;
+
+function showDialog({ title = "", message = "", input = false, inputValue = "", placeholder = "", hint = "", confirmLabel = "Confirmar", cancelLabel = "Cancelar" } = {}) {
+  const overlay = document.getElementById("dialogOverlay");
+  const titleEl = document.getElementById("dialogTitle");
+  const messageEl = document.getElementById("dialogMessage");
+  const inputEl = document.getElementById("dialogInput");
+  const hintEl = document.getElementById("dialogHint");
+  const confirmBtn = document.getElementById("dialogConfirmBtn");
+  const cancelBtn = document.getElementById("dialogCancelBtn");
+
+  titleEl.textContent = title;
+  messageEl.textContent = message;
+  hintEl.textContent = hint || "";
+  hintEl.classList.toggle("hidden", !hint);
+  confirmBtn.textContent = confirmLabel;
+  cancelBtn.textContent = cancelLabel;
+
+  inputEl.classList.toggle("hidden", !input);
+  inputEl.placeholder = placeholder || "";
+  inputEl.value = input ? inputValue : "";
+
+  overlay.classList.remove("hidden");
+
+  setTimeout(() => {
+    if (input) {
+      inputEl.focus();
+      inputEl.select();
+    } else {
+      confirmBtn.focus();
+    }
+  }, 0);
+
+  return new Promise((resolve) => {
+    dialogResolve = resolve;
+  });
+}
+
+function closeDialog(result) {
+  const overlay = document.getElementById("dialogOverlay");
+  if (overlay.classList.contains("hidden")) return;
+  overlay.classList.add("hidden");
+  const resolve = dialogResolve;
+  dialogResolve = null;
+  if (resolve) resolve(result);
+}
+
+function askConfirm(options) {
+  return showDialog(options);
+}
+
+function askPrompt(options) {
+  return showDialog({ ...options, input: true });
+}
+
+document.getElementById("dialogConfirmBtn").addEventListener("click", () => {
+  const inputEl = document.getElementById("dialogInput");
+  closeDialog(inputEl.classList.contains("hidden") ? true : inputEl.value);
+});
+
+document.getElementById("dialogCancelBtn").addEventListener("click", () => closeDialog(null));
+
+document.getElementById("dialogCloseBtn").addEventListener("click", () => closeDialog(null));
+
+document.querySelector("#dialogOverlay .dialog-backdrop").addEventListener("click", () => closeDialog(null));
+
+document.addEventListener("keydown", (event) => {
+  const overlay = document.getElementById("dialogOverlay");
+  if (overlay.classList.contains("hidden")) return;
+  if (event.key === "Escape") {
+    closeDialog(null);
+    return;
+  }
+  if (event.key === "Enter") {
+    const inputEl = document.getElementById("dialogInput");
+    if (!inputEl.classList.contains("hidden")) {
+      closeDialog(inputEl.value);
+    }
+  }
+});
+
 adminLoginForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const formData = new FormData(adminLoginForm);
-  const username = String(formData.get("username") || "").trim();
-  const password = String(formData.get("password") || "").trim();
+  const username = String(formData.get("username") || "");
 
-  if (username === "admin" && password === "admin123") {
+  const normalized = username.trim().toLowerCase();
+  const user = dbUsers.find(
+    (candidate) => String(candidate.username).trim().toLowerCase() === normalized
+  );
+
+  if (!user) {
+    if (dbUsers.length === 0) {
+      createFirstAdmin(username);
+      return;
+    }
+    loginError.textContent = "Ese usuario no existe.";
+    loginError.classList.remove("hidden");
+    return;
+  }
+
+  const password = String(formData.get("password") || "");
+  if (user.passwordHash === sha256(password)) {
+    try {
+      sessionStorage.setItem("mates-travel-session", "1");
+    } catch {
+      // Sin sesión persistente.
+    }
+    loginError.classList.add("hidden");
     closeLoginModal();
     setAuthenticated(true);
     adminLoginForm.reset();
@@ -471,7 +1077,39 @@ adminLoginForm.addEventListener("submit", (event) => {
     return;
   }
 
-  window.alert("Usuario o contraseña incorrectos.");
+  loginError.textContent = "Contraseña incorrecta.";
+  loginError.classList.remove("hidden");
+});
+
+function createFirstAdmin(username) {
+  const name = String(username || "").trim();
+  askPrompt({
+    title: "Crear primer administrador",
+    message: `No hay administradores todavía. Definí una contraseña para el usuario "${name || "nuevo"}" (mínimo 6 caracteres).`,
+    placeholder: "Contraseña",
+  }).then((password) => {
+    const cleanPassword = String(password || "").trim();
+    if (cleanPassword.length < 6) {
+      window.alert("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+    const user = {
+      username: name || "admin",
+      passwordHash: sha256(cleanPassword),
+    };
+    dbUsers.push(user);
+    saveData();
+    loginError.classList.add("hidden");
+    closeLoginModal();
+    setAuthenticated(true);
+    adminLoginForm.reset();
+    applyAdminView("catalogo");
+    openAdminPanel();
+  });
+}
+
+adminLoginForm.addEventListener("input", () => {
+  loginError.classList.add("hidden");
 });
 
 adminTabButtons.forEach((button) => {
@@ -485,85 +1123,278 @@ adminPanelModal.addEventListener("click", (event) => {
   }
 });
 
-stockList.addEventListener("click", (event) => {
+productsAdminList.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-action]");
   if (!button) return;
 
-  const productId = Number(button.dataset.id);
-  const product = getProductById(productId);
+  const product = getProductById(Number(button.dataset.id));
   if (!product) return;
 
   if (button.dataset.action === "edit") {
     fillForm(product);
   }
 
-  if (button.dataset.action === "plus") {
-    product.stock += 1;
-  }
-
-  if (button.dataset.action === "minus" && product.stock > 0) {
-    product.stock -= 1;
+  if (button.dataset.action === "delete") {
+    askConfirm({
+      title: "Eliminar producto",
+      message: `¿Eliminar "${product.name}" del catálogo?`,
+      confirmLabel: "Eliminar",
+    }).then((confirmed) => {
+      if (!confirmed) return;
+      state.products = state.products.filter((p) => p.id !== product.id);
+      saveData();
+      resetForm();
+      renderAll();
+    });
   }
 
   renderAll();
 });
 
-existingProductSelect.addEventListener("change", () => {
-  const productId = existingProductSelect.value ? Number(existingProductSelect.value) : null;
-  if (!productId) {
-    resetForm();
-    return;
+document.getElementById("repairCategoriesBtn").addEventListener("click", () => {
+  askConfirm({
+    title: "Reparar categorías",
+    message: "¿Normalizar las categorías de los productos y re-vincular los que quedaron sueltos?",
+    confirmLabel: "Reparar",
+  }).then((confirmed) => {
+    if (!confirmed) return;
+    state.products.forEach((p) => {
+      const rawCat = p.category.toLowerCase().trim();
+      const parts = splitCategory(p.category);
+      let normalizedFamily = parts.family;
+      let normalizedVariant = parts.variant;
+
+      if (!normalizedFamily || normalizedFamily === rawCat) {
+        const searchable = `${p.name} ${rawCat} ${p.label || ""} ${p.description}`.toLowerCase();
+        const byLabel = categoryFamilies.find((f) => f.family === (p.label || "").toLowerCase().trim());
+        const byName = categoryFamilies.find((f) => searchable.includes(f.family));
+        const matched = byLabel || byName;
+        if (matched) {
+          normalizedFamily = matched.family;
+          normalizedVariant = matched.variants.find((v) => rawCat.includes(v)) || "";
+        }
+      }
+
+      if (normalizedFamily) {
+        p.category = normalizedVariant ? `${normalizedFamily} ${normalizedVariant}` : normalizedFamily;
+      }
+    });
+    saveData();
+    renderAll();
+    window.alert("Listo. Categorías normalizadas y productos sueltos re-vinculados.");
+  });
+});
+
+document.getElementById("categoryManager").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+
+  const familyName = button.dataset.family;
+  const family = categoryFamilies.find((f) => f.family === familyName);
+  const action = button.dataset.action;
+  const clean = (text) => String(text || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+  if (action === "rename-family") {
+    if (!family) return;
+    askPrompt({
+      title: "Renombrar categoría",
+      message: `Nombre actual: "${capitalize(family.family)}"`,
+      hint: "El cambio se aplica a todos sus productos.",
+      confirmLabel: "Guardar",
+    }).then((rawName) => {
+      const newName = clean(rawName);
+      if (!newName || newName === family.family) return;
+      const oldName = family.family;
+      const singular = oldName.replace(/s$/, "");
+      family.family = newName;
+      state.products.forEach((p) => {
+        const cat = p.category.toLowerCase().trim();
+        if (categoryPrefixMatches(cat, oldName)) {
+          let rest = "";
+          if (cat.startsWith(oldName)) rest = cat.slice(oldName.length).trim();
+          else if (cat.startsWith(singular)) rest = cat.slice(singular.length).trim();
+          p.category = rest ? `${newName} ${rest}` : newName;
+        }
+      });
+      saveData();
+      renderAll();
+    });
   }
 
-  const product = getProductById(productId);
-  if (product) {
-    fillForm(product);
+  if (action === "delete-family") {
+    if (!family) return;
+    askConfirm({
+      title: "Eliminar categoría",
+      message: `¿Eliminar la categoría "${capitalize(family.family)}" y todos sus productos?`,
+      confirmLabel: "Eliminar",
+    }).then((confirmed) => {
+      if (!confirmed) return;
+      const oldName = family.family;
+      categoryFamilies = categoryFamilies.filter((f) => f.family !== oldName);
+      state.products = state.products.filter((p) => !categoryPrefixMatches(p.category, oldName));
+      saveData();
+      resetForm();
+      renderAll();
+    });
+  }
+
+  if (action === "rename-variant") {
+    if (!family) return;
+    const oldVariant = button.dataset.variant;
+    askPrompt({
+      title: "Renombrar subcategoría",
+      message: `Subcategoría actual: "${capitalize(oldVariant)}" de "${capitalize(family.family)}"`,
+      hint: "El cambio se aplica a sus productos.",
+      confirmLabel: "Guardar",
+    }).then((rawName) => {
+      const newVariant = clean(rawName);
+      if (!newVariant || newVariant === oldVariant) return;
+      family.variants = family.variants.map((v) => (v === oldVariant ? newVariant : v));
+      state.products.forEach((p) => {
+        if (p.category === `${family.family} ${oldVariant}`) {
+          p.category = `${family.family} ${newVariant}`;
+        }
+      });
+      saveData();
+      renderAll();
+    });
+  }
+
+  if (action === "delete-variant") {
+    if (!family) return;
+    const oldVariant = button.dataset.variant;
+    askConfirm({
+      title: "Eliminar subcategoría",
+      message: `¿Eliminar la subcategoría "${capitalize(oldVariant)}"? Sus productos pasarán a "${capitalize(family.family)}".`,
+      confirmLabel: "Eliminar",
+    }).then((confirmed) => {
+      if (!confirmed) return;
+      family.variants = family.variants.filter((v) => v !== oldVariant);
+      state.products.forEach((p) => {
+        if (p.category === `${family.family} ${oldVariant}`) {
+          p.category = family.family;
+        }
+      });
+      saveData();
+      renderAll();
+    });
   }
 });
+
+categorySelect.addEventListener("change", syncVariantSelect);
+
+variantSelect.addEventListener("change", () => {
+  const isNew = variantSelect.value === "__new__";
+  newVariantField.classList.toggle("hidden", !isNew);
+  if (!isNew) {
+    document.querySelector('[name="newVariant"]').value = "";
+  }
+});
+
+imageInput.addEventListener("change", () => {
+  const file = imageInput.files && imageInput.files[0];
+  if (file) processImageFile(file);
+});
+
+imageDropzone.addEventListener("click", () => imageInput.click());
+imageDropzone.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    imageInput.click();
+  }
+});
+
+imageRemoveBtn.addEventListener("click", () => {
+  pendingImage = null;
+  imageInput.value = "";
+  showImagePreview(null);
+});
+
+cancelEditBtn.addEventListener("click", resetForm);
 
 productForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
-  const formData = new FormData(productForm);
-  const existingId = String(formData.get("id") || "").trim();
-  const name = String(formData.get("name") || "").trim();
-  const family = String(formData.get("family") || "").trim().toLowerCase();
-  const subtype = String(formData.get("subtype") || "").trim().toLowerCase();
-  const price = Number(formData.get("price"));
-  const stock = Number(formData.get("stock"));
-  const cost = Number(formData.get("cost"));
-  const description = String(formData.get("description") || "").trim();
+  const existingId = Number(String(productForm.elements.id.value || "").trim()) || null;
+  const name = String(productForm.elements.name.value || "").trim();
+  const label = String(productForm.elements.label.value || "").trim() || null;
+  const description = String(productForm.elements.description.value || "").trim();
+  const price = Number(productForm.elements.price.value);
+  const stock = Number(productForm.elements.stock.value);
+  const sold = Number(productForm.elements.sold.value);
+  const cost = Number(productForm.elements.cost.value);
 
-  if (!name || !family || Number.isNaN(price) || Number.isNaN(stock) || Number.isNaN(cost) || !description) {
+  if (!name || Number.isNaN(price) || Number.isNaN(stock) || Number.isNaN(sold) || Number.isNaN(cost) || !description) {
+    window.alert("Completá nombre, precio, stock, unidades vendidas, costo y descripción.");
     return;
   }
 
-  const category = subtype ? `${family} ${subtype}`.trim() : family;
+  const clean = (text) => String(text || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+  let familyValue = categorySelect.value;
+  let variantValue = variantSelect.value;
+
+  if (familyValue === "__new__") {
+    const newFamily = clean(document.querySelector('[name="newFamily"]').value);
+    if (!newFamily) {
+      window.alert("Escribí el nombre de la nueva categoría.");
+      return;
+    }
+    const existing = categoryFamilies.find((f) => f.family === newFamily);
+    familyValue = existing ? existing.family : newFamily;
+    if (!existing) {
+      categoryFamilies.push({ family: newFamily, variants: [] });
+    }
+    if (variantValue !== "__new__") {
+      variantValue = "";
+    }
+  }
+
+  if (variantValue === "__new__") {
+    const newVariant = clean(document.querySelector('[name="newVariant"]').value);
+    if (!newVariant) {
+      window.alert("Escribí el nombre de la nueva subcategoría.");
+      return;
+    }
+    const family = categoryFamilies.find((f) => f.family === familyValue);
+    if (family && !family.variants.includes(newVariant)) {
+      family.variants.push(newVariant);
+    }
+    variantValue = newVariant;
+  }
+
+  const category = variantValue ? `${familyValue} ${variantValue}` : familyValue;
 
   if (existingId) {
-    const product = getProductById(Number(existingId));
+    const product = getProductById(existingId);
     if (product) {
       product.name = name;
       product.category = category;
+      product.label = label;
       product.price = price;
       product.stock = stock;
+      product.sold = sold;
       product.cost = cost;
       product.description = description;
+      product.image = pendingImage;
     }
   } else {
     state.products.unshift({
       id: Date.now(),
       name,
       category,
+      label,
       price,
       cost,
       stock,
-      sold: 0,
+      sold,
       description,
       tone: "#a15c38",
+      image: pendingImage,
     });
   }
 
+  saveData();
   resetForm();
   renderAll();
 });
