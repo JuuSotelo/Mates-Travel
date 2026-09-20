@@ -263,7 +263,7 @@ function syncRemote() {
 
 class TursoClient {
   constructor(url, token) {
-    this.baseUrl = String(url).replace(/\/+$/, "");
+    this.baseUrl = String(url).replace(/\/+$/, "").replace(/^libsql:\/\//, "https://");
     this.token = token;
   }
   async request(sql) {
@@ -274,14 +274,15 @@ class TursoClient {
         Authorization: `Bearer ${this.token}`,
       },
       body: JSON.stringify({
-        requests: [{ type: "execute", stmt: { sql: String(sql).replace(/'/g, "''") } }],
+        requests: [{ type: "execute", stmt: { sql: String(sql) } }],
       }),
     });
     if (!response.ok) throw new Error(`Turso HTTP ${response.status}`);
     const json = await response.json();
     const first = json && json.results && json.results[0];
-    if (first && first.type === "execute" && first.response && first.response.error) {
-      throw new Error(first.response.error.message || "Error de Turso");
+    const err = first && first.response && (first.response.error || (first.response.result && first.response.result.error));
+    if (first && first.type !== "ok" && err) {
+      throw new Error((err.message || err) + " | " + String(sql).slice(0, 80));
     }
     return first ? first.response : null;
   }
@@ -298,7 +299,10 @@ class TursoClient {
       }
     }
     const rows = res && res.result && res.result.rows;
-    return rows && rows.length ? JSON.parse(rows[0][0]) : null;
+    if (!rows || !rows.length) return null;
+    const raw = rows[0][0];
+    const text = raw && typeof raw === "object" && "value" in raw ? raw.value : raw;
+    return JSON.parse(text);
   }
   async setData(blob) {
     await this.request(
