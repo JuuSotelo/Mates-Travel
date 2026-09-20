@@ -560,11 +560,14 @@ function productMatchesCategory(product, category) {
 }
 
 function visibleProducts() {
+  const search = state.search.trim().toLowerCase();
+  const hasSearch = search.length > 0;
   return state.products.filter((product) => {
-    const matchesSearch = `${product.name} ${product.category} ${product.label || ""} ${product.description}`
-      .toLowerCase()
-      .includes(state.search.toLowerCase());
-    return matchesSearch && productMatchesCategory(product, state.category);
+    const productText = `${product.name} ${product.category} ${product.label || ""} ${product.description}`.toLowerCase();
+    if (hasSearch) {
+      return productText.includes(search);
+    }
+    return productMatchesCategory(product, state.category);
   });
 }
 
@@ -1112,7 +1115,10 @@ function closeAdminPanel() {
 
 searchInput.addEventListener("input", (event) => {
   state.search = event.target.value;
-  renderCatalog();
+  if (state.search.trim()) {
+    state.category = "all";
+  }
+  renderAll();
 });
 
 catalogGrid.addEventListener("click", (event) => {
