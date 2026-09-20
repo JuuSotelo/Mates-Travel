@@ -422,10 +422,46 @@ class TursoClient {
   }
 }
 
+class ApiClient {
+  constructor() {
+    this.healthy = true;
+  }
+  async call(action, payload) {
+    if (!this.healthy) throw new Error("API no disponible");
+    let response;
+    try {
+      response = await fetch("/api/db", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload === undefined ? { action } : { action, payload }),
+      });
+    } catch {
+      this.healthy = false;
+      throw new Error("API no disponible");
+    }
+    if (!response.ok) {
+      if (response.status >= 500) this.healthy = false;
+      throw new Error(`API HTTP ${response.status}`);
+    }
+    const data = await response.json().catch(() => null);
+    if (data && data.error) throw new Error(data.error);
+    return data ? data.data : null;
+  }
+  async pull() {
+    return await this.call("pull");
+  }
+  async push(payload) {
+    await this.call("push", payload);
+  }
+}
+
 const remoteDb = (() => {
   const cfg = (typeof window !== "undefined" && window.MATES_LOCAL_DB) || {};
   if (cfg.url && cfg.token) {
     return new TursoClient(cfg.url, cfg.token);
+  }
+  if (typeof window !== "undefined" && window.location && /^http/.test(window.location.protocol)) {
+    return new ApiClient();
   }
   return null;
 })();
