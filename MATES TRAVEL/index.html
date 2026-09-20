@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Catálogo de piezas de taller y travesía con acceso privado para administración, stock y contabilidad." />
+    <title>Mates Travel | Catálogo de mates</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/svg+xml" href="assets/logo/mates-travel-logo.svg" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar topbar-editorial">
+        <div class="brand-block brand-block-compact">
+          <img class="brand-logo" src="assets/logo/mates-travel-logo.svg" alt="Logo de Mates Travel" />
+          <div>
+            <p class="brand-name">Mates Travel</p>
+            <p class="brand-tag">Compañeros de viaje</p>
+          </div>
+        </div>
+
+        <nav class="topnav" aria-label="Navegación principal">
+          
+        </nav>
+
+        <div class="header-actions">
+          <button class="icon-btn icon-btn-admin" id="adminLoginBtn" type="button" aria-label="Ingresar como admin">◔</button>
+          <button class="secondary-btn hidden" id="adminLogoutBtn" type="button">Cerrar sesión</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="controls catalog-section" id="catalogSection">
+          <section class="hero hero-editorial">
+            <div class="hero-brand-row">
+              <img class="hero-logo" src="assets/logo/mates-travel-logo.svg" alt="Logo de Mates Travel" />
+              <div>
+                <p class="hero-brand">Mates Travel</p>
+                <p class="hero-brand-sub">Compañeros de viaje</p>
+              </div>
+            </div>
+            <h2>Catálogo de mates &amp; accesorios</h2>
+            <p class="hero-copy">Encontrá modelos únicos, ideales para disfrutar, compartir o regalar</p>
+            <div class="search-hero">
+              <span class="search-hero-icon">⌕</span>
+              <input id="searchInput" type="search" placeholder="Buscar mate imperial, alpaca, canasta matera..." />
+              <button class="filter-pill" type="button" aria-label="Filtros">☰</button>
+            </div>
+            <div class="hero-tags" aria-label="Categorías destacadas">
+              <span>Descubrí nuestra selección de mates, accesorios y productos pensados para acompañarte en cada aventura.</span>
+      
+            </div>
+          </section>
+
+          <div class="section-heading section-heading-editorial">
+            <div>
+              <p class="section-label">Colección</p>
+              <h3>Piezas imperdibles</h3>
+            </div>
+          </div>
+          <div class="category-browser" id="categoryBrowser"></div>
+          <span class="section-count section-count-under-title" id="featuredCount">Mostrando 0 piezas de oferta y guarnicionería</span>
+          <div class="catalog-grid" id="catalogGrid"></div>
+        </section>
+
+      </main>
+    </div>
+
+    <div class="modal hidden" id="adminLoginModal" aria-hidden="true">
+      <div class="modal-backdrop" data-action="close-login"></div>
+      <article class="login-card" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <button class="modal-close" type="button" data-action="close-login" aria-label="Cerrar">×</button>
+        <p class="section-label">Acceso administrador</p>
+        <h2 id="loginTitle">Iniciar sesión</h2>
+        <p class="login-copy">Usá el acceso privado para editar el catálogo y revisar la contabilidad.</p>
+        <form id="adminLoginForm" class="login-form">
+          <label>
+            Usuario
+            <input name="username" type="text" placeholder="admin" required />
+          </label>
+          <label>
+            Contraseña
+            <input name="password" type="password" placeholder="admin123" required />
+          </label>
+          <button type="submit" class="primary-btn">Entrar</button>
+        </form>
+      </article>
+    </div>
+
+    <template id="productCardTemplate">
+      <article class="product-card">
+        <div class="product-image"></div>
+        <div class="product-label"></div>
+        <button class="product-heart" type="button" aria-label="Guardar en favoritos">♡</button>
+        <div class="product-body">
+          <div class="product-meta">
+            <span class="product-category"></span>
+            <span class="product-stock"></span>
+          </div>
+          <h4 class="product-name"></h4>
+          <p class="product-description"></p>
+          <div class="product-footer">
+            <strong class="product-price"></strong>
+            <button class="product-buy" data-action="details" type="button">Consultar pieza</button>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <div class="modal hidden" id="productModal" aria-hidden="true">
+      <div class="modal-backdrop" data-action="close-modal"></div>
+      <article class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <button class="modal-close" type="button" data-action="close-modal" aria-label="Cerrar">×</button>
+        <div class="modal-visual" id="modalVisual"></div>
+        <div class="modal-content">
+          <p class="section-label">Detalle del producto</p>
+          <h3 id="modalTitle"></h3>
+          <p class="modal-description" id="modalDescription"></p>
+          <div class="modal-grid">
+            <article>
+              <span>Precio</span>
+              <strong id="modalPrice"></strong>
+            </article>
+            <article>
+              <span>Stock</span>
+              <strong id="modalStock"></strong>
+            </article>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="secondary-btn" id="modalCloseBtn">Cerrar</button>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <div class="modal hidden" id="adminPanelModal" aria-hidden="true">
+      <div class="modal-backdrop" data-action="close-admin"></div>
+      <article class="admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+        <button class="modal-close" type="button" data-action="close-admin" aria-label="Cerrar">×</button>
+        <div class="section-heading admin-modal-heading">
+          <div>
+            <p class="section-label">Panel administrador</p>
+            <h2 id="adminTitle">Modificar catálogo y ver contabilidad</h2>
+          </div>
+          <span class="admin-badge">Acceso privado</span>
+        </div>
+
+        <div class="admin-tabs" role="tablist" aria-label="Secciones de administración">
+          <button class="admin-tab active" type="button" data-admin-view="catalogo">Editar catálogo</button>
+          <button class="admin-tab" type="button" data-admin-view="contabilidad">Contabilidad</button>
+        </div>
+
+        <div class="admin-view active" data-admin-panel="catalogo">
+          <div class="admin-layout">
+            <div class="panel stock-panel">
+              <div class="panel-head">
+                <h3>Stock actual</h3>
+                <p>Subí o bajá unidades y modificá productos existentes.</p>
+              </div>
+              <div class="stock-list" id="stockList"></div>
+            </div>
+
+            <div class="panel form-panel">
+              <div class="panel-head">
+                <h3>Agregar o modificar producto</h3>
+                <p>Podés crear uno nuevo o editar uno existente desde el selector.</p>
+              </div>
+              <form id="productForm" class="product-form">
+                <input type="hidden" name="id" />
+                <label>
+                  Seleccionar producto
+                  <select name="existingId" id="existingProductSelect">
+                    <option value="">Nuevo producto</option>
+                  </select>
+                </label>
+                <label>
+                  Nombre del producto
+                  <input name="name" type="text" placeholder="Mate imperial" required />
+                </label>
+                <label>
+                  Familia
+                  <input name="family" type="text" placeholder="mate imperial" required />
+                </label>
+                <label>
+                  Variante
+                  <input name="subtype" type="text" placeholder="calabaza" required />
+                </label>
+                <label>
+                  Precio
+                  <input name="price" type="number" min="0" step="0.01" placeholder="25000" required />
+                </label>
+                <label>
+                  Stock inicial
+                  <input name="stock" type="number" min="0" step="1" placeholder="12" required />
+                </label>
+                <label>
+                  Costo unitario
+                  <input name="cost" type="number" min="0" step="0.01" placeholder="14500" required />
+                </label>
+                <label>
+                  Breve descripción
+                  <textarea name="description" rows="4" placeholder="Acero inoxidable, ideal para regalo..." required></textarea>
+                </label>
+                <button type="submit" class="primary-btn full-width">Guardar cambios</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-view hidden" data-admin-panel="contabilidad">
+          <div class="accounting-grid">
+            <article class="account-card">
+              <span>Ingresos del mes</span>
+              <strong id="accRevenue">$0</strong>
+              <p>Ventas estimadas según las unidades vendidas cargadas en el sistema.</p>
+            </article>
+            <article class="account-card">
+              <span>Costos</span>
+              <strong id="accCosts">$0</strong>
+              <p>Costos unitarios multiplicados por unidades vendidas.</p>
+            </article>
+            <article class="account-card accent">
+              <span>Ganancia bruta</span>
+              <strong id="accProfit">$0</strong>
+              <p>Margen bruto antes de gastos operativos y fijos.</p>
+            </article>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

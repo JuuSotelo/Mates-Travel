@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Mates Travel logo</title>
+  <desc id="desc">Olive green circular logo with mountain, road and mate icon, and the text Mates Travel Companeros de Viaje.</desc>
+  <rect width="1024" height="1024" fill="#4a4a2e"/>
+  <g fill="none" stroke="#f3ece2" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="512" cy="512" r="392"/>
+    <circle cx="512" cy="512" r="377"/>
+    <path d="M307 512c35-10 62-39 92-67 27-25 49-61 95-61 31 0 56 16 75 40 18-17 34-31 58-31 31 0 51 18 72 44 16 20 35 34 64 32"/>
+    <path d="M297 570c55-22 110-21 157-9 53 14 98 39 147 58 61 23 118 26 214-1"/>
+    <path d="M504 603c-25 33-54 76-72 109"/>
+    <path d="M556 598c9 26 14 55 11 79"/>
+    <path d="M590 572c18 15 44 24 63 43 18 18 27 40 22 67"/>
+    <path d="M624 554c33 8 71 12 109 8"/>
+    <path d="M455 700c-16 14-33 34-44 56"/>
+    <path d="M564 691c19 13 38 27 53 45"/>
+    <path d="M420 762c34-7 66-7 95 0 27 7 56 7 91 0"/>
+    <path d="M497 764c0-26 10-56 31-83 17 19 27 45 27 83"/>
+    <path d="M497 764c8-24 21-39 31-39 11 0 22 15 30 39"/>
+    <path d="M473 671c0-17 15-29 37-29 23 0 40 12 40 29 0 10-4 19-11 24-8 7-18 10-29 10-23 0-37-13-37-34"/>
+    <path d="M467 650c5-12 18-18 39-18 20 0 34 6 39 18"/>
+    <path d="M356 592h92"/>
+    <path d="M576 592h92"/>
+  </g>
+  <defs>
+    <path id="topArc" d="M260 500a252 252 0 0 1 504 0"/>
+    <path id="bottomArc" d="M764 604a252 252 0 0 1 -504 0"/>
+  </defs>
+  <g fill="#f3ece2" font-family="Inter, Arial, sans-serif" font-size="36" letter-spacing="8">
+    <text>
+      <textPath href="#topArc" startOffset="50%" text-anchor="middle">MATES TRAVEL</textPath>
+    </text>
+    <text font-size="30" letter-spacing="7">
+      <textPath href="#bottomArc" startOffset="50%" text-anchor="middle">COMPANEROS DE VIAJE</textPath>
+    </text>
+  </g>
+</svg>
